@@ -38,7 +38,7 @@ func NewTCPClientHandler(address string) *TCPClientHandler {
 	h.Address = address
 	h.Timeout = tcpTimeout
 	h.IdleTimeout = tcpIdleTimeout
-	h.VerifyTransactionId = true
+	h.VerifyData = true
 	return h
 }
 
@@ -55,7 +55,7 @@ type tcpPackager struct {
 	// Broadcast address is 0
 	SlaveId byte
 	// Data Verify
-	VerifyTransactionId bool
+	VerifyData bool
 }
 
 // Encode adds modbus application protocol header:
@@ -87,19 +87,21 @@ func (mb *tcpPackager) Encode(pdu *ProtocolDataUnit) (adu []byte, err error) {
 
 // Verify confirms transaction, protocol and unit id.
 func (mb *tcpPackager) Verify(aduRequest []byte, aduResponse []byte) (err error) {
+	if !mb.VerifyData {
+		return
+	}
+
 	// Transaction id
-	if mb.VerifyTransactionId {
-		responseVal := binary.BigEndian.Uint16(aduResponse)
-		requestVal := binary.BigEndian.Uint16(aduRequest)
-		if responseVal != requestVal {
-			err = fmt.Errorf("modbus: response transaction id '%v' does not match request '%v'", responseVal, requestVal)
-			return
-		}
+	responseVal := binary.BigEndian.Uint16(aduResponse)
+	requestVal := binary.BigEndian.Uint16(aduRequest)
+	if responseVal != requestVal {
+		err = fmt.Errorf("modbus: response transaction id '%v' does not match request '%v'", responseVal, requestVal)
+		return
 	}
 
 	// Protocol id
-	responseVal := binary.BigEndian.Uint16(aduResponse[2:])
-	requestVal := binary.BigEndian.Uint16(aduRequest[2:])
+	responseVal = binary.BigEndian.Uint16(aduResponse[2:])
+	requestVal = binary.BigEndian.Uint16(aduRequest[2:])
 	if responseVal != requestVal {
 		err = fmt.Errorf("modbus: response protocol id '%v' does not match request '%v'", responseVal, requestVal)
 		return
